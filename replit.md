@@ -1,20 +1,22 @@
-# [Project name]
+# EKYVA AI V1
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+Provider-agnostic AI gateway console for routed generation, Universal Units wallet billing, provider health, and developer API keys.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/api-server run dev` — run the API server
+- `pnpm --filter @workspace/ekyva-console run dev` — run the dashboard
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+- `pnpm --filter @workspace/api-server run test` — routing, wallet, and provider unit tests
+- Required env: `DATABASE_URL`, Clerk secrets provisioned by Replit Auth, and optional `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`
 
 ## Stack
 
 - pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
+- API: Express 5 with Clerk-managed browser authentication
 - DB: PostgreSQL + Drizzle ORM
 - Validation: Zod (`zod/v4`), `drizzle-zod`
 - API codegen: Orval (from OpenAPI spec)
@@ -22,23 +24,35 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- `lib/api-spec/openapi.yaml` — versioned API source of truth
+- `lib/db/src/schema/index.ts` — normalized PostgreSQL schema
+- `artifacts/api-server/src/lib/providers.ts` — adapter interface and provider implementations
+- `artifacts/api-server/src/lib/routing.ts` — capability filtering and scoring
+- `artifacts/api-server/src/lib/wallet.ts` — immutable Universal Units ledger service
+- `artifacts/api-server/src/routes/v1.ts` — authenticated v1 gateway and dashboard endpoints
+- `artifacts/ekyva-console/src/App.tsx` — Clerk-wrapped responsive console
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Provider SDK calls are isolated behind `ProviderAdapter`; routing never imports provider-specific clients.
+- Clerk owns browser authentication; the API does not recreate local password or JWT authentication.
+- The local development fallback uses a demo session only when `NODE_ENV` is not production; production requests require a Clerk session.
+- Universal Units are represented by append-only ledger events in the wallet service; a mutable balance is only a derived convenience for the MVP.
+- Provider status, quality, latency, and cost are model registry data so routing modes can change without provider-specific conditionals.
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+The console exposes a public product entry point and protected workspace for wallet balance, usage, request history, models/capabilities, API keys, routing mode, and basic provider health. The API accepts normalized text-generation requests with idempotency and retry/failover semantics.
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- Keep the architecture modular for adding providers and future AI capabilities without rewriting the gateway core.
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Run API codegen after changing `lib/api-spec/openapi.yaml`.
+- Generation requires a configured provider credential; unconfigured adapters remain visible as degraded catalog entries but are not called successfully.
+- Never expose provider credentials or API key hashes in responses/logs.
 
 ## Pointers
 

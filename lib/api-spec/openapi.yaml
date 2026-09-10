@@ -3,13 +3,21 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: EKYVA AI gateway API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+  - name: ai
+  - name: catalog
+  - name: wallet
+  - name: usage
+  - name: api-keys
+  - name: routing
+  - name: admin
 paths:
   /healthz:
     get:
@@ -24,7 +32,301 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /v1/auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Create an EKYVA account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Created account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /v1/auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Start an authenticated session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Authenticated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the current account
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: Current account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /v1/ai/generate:
+    post:
+      operationId: generate
+      tags: [ai]
+      summary: Generate a normalized AI response
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateInput"
+      responses:
+        "200":
+          description: Generated response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GenerationResult"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          description: Insufficient wallet balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /v1/models:
+    get:
+      operationId: listModels
+      tags: [catalog]
+      summary: List available models
+      responses:
+        "200":
+          description: Model catalog
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Model"
+  /v1/capabilities:
+    get:
+      operationId: listCapabilities
+      tags: [catalog]
+      summary: List registered capabilities
+      responses:
+        "200":
+          description: Capability registry
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Capability"
+  /v1/usage:
+    get:
+      operationId: getUsage
+      tags: [usage]
+      summary: Get usage records
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: query
+          name: range
+          schema:
+            type: string
+            enum: [7d, 30d, 90d]
+            default: 30d
+      responses:
+        "200":
+          description: Usage history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageResponse"
+  /v1/requests:
+    get:
+      operationId: listRequests
+      tags: [usage]
+      summary: List recent generation requests
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: Request history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RequestSummary"
+  /v1/wallet:
+    get:
+      operationId: getWallet
+      tags: [wallet]
+      summary: Get wallet balance and ledger activity
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: Wallet summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Wallet"
+  /v1/api-keys:
+    get:
+      operationId: listApiKeys
+      tags: [api-keys]
+      summary: List API keys
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: API keys
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKey"
+    post:
+      operationId: createApiKey
+      tags: [api-keys]
+      summary: Create a developer API key
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiKeyInput"
+      responses:
+        "201":
+          description: Created key (secret shown once)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyCreated"
+  /v1/api-keys/{id}:
+    delete:
+      operationId: deleteApiKey
+      tags: [api-keys]
+      summary: Revoke an API key
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ApiKeyId"
+      responses:
+        "204":
+          description: Revoked
+  /v1/routing/mode:
+    patch:
+      operationId: updateRoutingMode
+      tags: [routing]
+      summary: Change the default routing mode
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoutingModeInput"
+      responses:
+        "200":
+          description: Updated mode
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoutingSettings"
+  /v1/dashboard/summary:
+    get:
+      operationId: getDashboardSummary
+      tags: [usage]
+      summary: Get dashboard summary metrics
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+  /v1/admin/overview:
+    get:
+      operationId: getAdminOverview
+      tags: [admin]
+      summary: Get basic platform health overview
+      security: [{ cookieAuth: [] }]
+      responses:
+        "200":
+          description: Platform overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
 components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: ekyva_session
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    ApiKeyId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      in: header
+      name: Idempotency-Key
+      required: false
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +335,202 @@ components:
           type: string
       required:
         - status
+    ErrorResponse:
+      type: object
+      required: [error, code]
+      properties:
+        error: { type: string }
+        code: { type: string }
+        request_id: { type: string }
+    RegisterInput:
+      type: object
+      required: [email, password, name]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 10, maxLength: 128 }
+        name: { type: string, minLength: 2, maxLength: 80 }
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 1, maxLength: 128 }
+    User:
+      type: object
+      required: [id, email, name, plan, routing_mode, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        name: { type: string }
+        plan: { type: string }
+        routing_mode:
+          type: string
+          enum: [economy, balanced, quality]
+        created_at: { type: string, format: date-time }
+    AuthResponse:
+      type: object
+      required: [user]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+    Capability:
+      type: object
+      required: [id, label, description, model_count]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        description: { type: string }
+        model_count: { type: integer }
+    Model:
+      type: object
+      required: [id, provider, display_name, capabilities, quality_score, reliability, latency_ms, unit_cost, status]
+      properties:
+        id: { type: string }
+        provider: { type: string }
+        display_name: { type: string }
+        capabilities:
+          type: array
+          items: { type: string }
+        quality_score: { type: number }
+        reliability: { type: number }
+        latency_ms: { type: integer }
+        unit_cost: { type: number }
+        status:
+          type: string
+          enum: [healthy, degraded, offline]
+        context_window: { type: integer }
+    UsagePoint:
+      type: object
+      required: [date, requests, units, cost]
+      properties:
+        date: { type: string }
+        requests: { type: integer }
+        units: { type: number }
+        cost: { type: number }
+    UsageResponse:
+      type: object
+      required: [total_requests, total_units, total_cost, points]
+      properties:
+        total_requests: { type: integer }
+        total_units: { type: number }
+        total_cost: { type: number }
+        points:
+          type: array
+          items: { $ref: "#/components/schemas/UsagePoint" }
+    RequestSummary:
+      type: object
+      required: [id, capability, model, provider, status, units, latency_ms, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        capability: { type: string }
+        model: { type: string }
+        provider: { type: string }
+        status: { type: string, enum: [completed, failed, processing] }
+        units: { type: number }
+        latency_ms: { type: integer }
+        created_at: { type: string, format: date-time }
+    WalletTransaction:
+      type: object
+      required: [id, type, units, description, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [CREDIT, DEBIT, REFUND, BONUS, ADJUSTMENT] }
+        units: { type: number }
+        description: { type: string }
+        created_at: { type: string, format: date-time }
+    Wallet:
+      type: object
+      required: [balance, currency, plan, transactions]
+      properties:
+        balance: { type: number }
+        currency: { type: string }
+        plan: { type: string }
+        transactions:
+          type: array
+          items: { $ref: "#/components/schemas/WalletTransaction" }
+    ApiKey:
+      type: object
+      required: [id, name, prefix, last_used_at, created_at, status]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        prefix: { type: string }
+        last_used_at: { type: ["string", "null"], format: date-time }
+        created_at: { type: string, format: date-time }
+        status: { type: string, enum: [active, revoked] }
+    ApiKeyInput:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+    ApiKeyCreated:
+      type: object
+      required: [key, name, id]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        key: { type: string }
+    RoutingModeInput:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [economy, balanced, quality]
+    RoutingSettings:
+      type: object
+      required: [mode]
+      properties:
+        mode:
+          type: string
+          enum: [economy, balanced, quality]
+    GenerateInput:
+      type: object
+      required: [capability, input]
+      properties:
+        capability:
+          type: string
+          enum: [text.generate, text.reason, vision.analyze, audio.transcribe, embeddings.create]
+        input: { type: string, minLength: 1, maxLength: 100000 }
+        mode:
+          type: string
+          enum: [economy, balanced, quality]
+        model: { type: ["string", "null"] }
+        max_output_tokens: { type: ["integer", "null"], minimum: 1, maximum: 32000 }
+    GenerationResult:
+      type: object
+      required: [id, output, model, provider, units, latency_ms, attempts]
+      properties:
+        id: { type: string, format: uuid }
+        output: { type: string }
+        model: { type: string }
+        provider: { type: string }
+        units: { type: number }
+        latency_ms: { type: integer }
+        attempts: { type: integer }
+    RoutingSettingsResponse:
+      type: object
+      properties:
+        mode: { type: string }
+    DashboardSummary:
+      type: object
+      required: [wallet_balance, monthly_units, monthly_requests, success_rate, avg_latency_ms, active_models, healthy_providers, routing_mode]
+      properties:
+        wallet_balance: { type: number }
+        monthly_units: { type: number }
+        monthly_requests: { type: integer }
+        success_rate: { type: number }
+        avg_latency_ms: { type: integer }
+        active_models: { type: integer }
+        healthy_providers: { type: integer }
+        routing_mode:
+          type: string
+          enum: [economy, balanced, quality]
+    AdminOverview:
+      type: object
+      required: [providers, healthy_providers, requests_today, units_today]
+      properties:
+        providers: { type: integer }
+        healthy_providers: { type: integer }
+        requests_today: { type: integer }
+        units_today: { type: number }
 
