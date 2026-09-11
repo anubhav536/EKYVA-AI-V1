@@ -181,6 +181,19 @@ export interface ApiKeyCreated {
   key: string;
 }
 
+export type ProviderKeyStatus = typeof ProviderKeyStatus[keyof typeof ProviderKeyStatus];
+
+
+export const ProviderKeyStatus = {
+  configured: 'configured',
+} as const;
+
+export interface ProviderKey {
+  provider: string;
+  configured_at: string;
+  status: ProviderKeyStatus;
+}
+
 export type RoutingModeInputMode = typeof RoutingModeInputMode[keyof typeof RoutingModeInputMode];
 
 
@@ -214,7 +227,7 @@ export const GenerateInputCapability = {
   textgenerate: 'text.generate',
   textreason: 'text.reason',
   visionanalyze: 'vision.analyze',
-  audiotranscribe: 'audio.transcribe',
+  imagegenerate: 'image.generate',
   embeddingscreate: 'embeddings.create',
 } as const;
 
@@ -310,4 +323,12 @@ export const GetUsageRange = {
   '30d': '30d',
   '90d': '90d',
 } as const;
+
+export type SaveProviderKeyBody = {
+  /**
+     * @minLength 10
+     * @maxLength 500
+     */
+  secret: string;
+};
 

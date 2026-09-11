@@ -10,7 +10,8 @@
   "scripts": {
     "push": "drizzle-kit push --config ./drizzle.config.ts",
     "push-force": "drizzle-kit push --force --config ./drizzle.config.ts",
-    "generate": "drizzle-kit generate --config ./drizzle.config.ts"
+    "generate": "drizzle-kit generate --config ./drizzle.config.ts",
+    "seed": "tsx ./seed.ts"
   },
   "dependencies": {
     "drizzle-orm": "catalog:",
@@ -21,6 +22,7 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "@types/pg": "^8.20.3",
+    "tsx": "catalog:",
     "drizzle-kit": "^0.31.10"
   }
 }

@@ -13,6 +13,6 @@ export const GenerateInputCapability = {
   textgenerate: 'text.generate',
   textreason: 'text.reason',
   visionanalyze: 'vision.analyze',
-  audiotranscribe: 'audio.transcribe',
+  imagegenerate: 'image.generate',
   embeddingscreate: 'embeddings.create',
 } as const;

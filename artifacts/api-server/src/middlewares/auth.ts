@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { getAuth } from "@clerk/express";
+import { authenticateDeveloperKey } from "../lib/db-store";
 
 declare global {
   namespace Express {
@@ -9,9 +10,14 @@ declare global {
   }
 }
 
-export function requireEkyvaAuth(req: Request, res: Response, next: NextFunction): void {
+export async function requireEkyvaAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   const auth = getAuth(req);
-  const userId = auth?.userId ?? (process.env.NODE_ENV !== "production" ? "demo-user" : undefined);
+  const bearer = req.header("Authorization")?.replace(/^Bearer\s+/i, "");
+  let userId: string | null | undefined = auth?.userId;
+  if (!userId && bearer?.startsWith("ek_live_")) {
+    userId = await authenticateDeveloperKey(bearer);
+  }
+  userId = userId ?? (process.env.NODE_ENV !== "production" ? "demo-user" : undefined);
   if (!userId) {
     res.status(401).json({ error: "Authentication required", code: "UNAUTHORIZED" });
     return;

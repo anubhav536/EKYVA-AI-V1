@@ -35,10 +35,12 @@ import type {
   HealthStatus,
   LoginInput,
   Model,
+  ProviderKey,
   RegisterInput,
   RequestSummary,
   RoutingModeInput,
   RoutingSettings,
+  SaveProviderKeyBody,
   UnauthorizedResponse,
   UsageResponse,
   User,
@@ -138,6 +140,83 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getHealthCheckQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetGatewayHealthUrl = () => {
+
+
+
+
+  return `/api/v1/health`
+}
+
+/**
+ * @summary Get gateway and provider health
+ */
+export const getGatewayHealth = async ( options?: Parameters<typeof customFetch>[1]): Promise<HealthStatus> => {
+
+  return customFetch<HealthStatus>(getGetGatewayHealthUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetGatewayHealthQueryKey = () => {
+    return [
+    `/api/v1/health`
+    ] as const;
+    }
+
+
+export const getGetGatewayHealthQueryOptions = <TData = Awaited<ReturnType<typeof getGatewayHealth>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGatewayHealth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetGatewayHealthQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getGatewayHealth>>> = ({ signal }) => getGatewayHealth({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getGatewayHealth>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetGatewayHealthQueryResult = NonNullable<Awaited<ReturnType<typeof getGatewayHealth>>>
+export type GetGatewayHealthQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get gateway and provider health
+ */
+
+export function useGetGatewayHealth<TData = Awaited<ReturnType<typeof getGatewayHealth>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getGatewayHealth>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetGatewayHealthQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1049,6 +1128,368 @@ export const useDeleteApiKey = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteApiKeyMutationOptions(options));
+    }
+
+export const getCreateDeveloperKeyAliasUrl = () => {
+
+
+
+
+  return `/api/v1/keys`
+}
+
+/**
+ * @summary Create a developer API key
+ */
+export const createDeveloperKeyAlias = async (apiKeyInput: ApiKeyInput, options?: Parameters<typeof customFetch>[1]): Promise<ApiKeyCreated> => {
+
+  return customFetch<ApiKeyCreated>(getCreateDeveloperKeyAliasUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(apiKeyInput)
+  }
+);}
+
+
+
+
+
+export const getCreateDeveloperKeyAliasMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDeveloperKeyAlias>>, TError,{data: BodyType<ApiKeyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createDeveloperKeyAlias>>, TError,{data: BodyType<ApiKeyInput>}, TContext> => {
+
+const mutationKey = ['createDeveloperKeyAlias'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createDeveloperKeyAlias>>, {data: BodyType<ApiKeyInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createDeveloperKeyAlias(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateDeveloperKeyAliasMutationResult = NonNullable<Awaited<ReturnType<typeof createDeveloperKeyAlias>>>
+    export type CreateDeveloperKeyAliasMutationBody = BodyType<ApiKeyInput>
+    export type CreateDeveloperKeyAliasMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a developer API key
+ */
+export const useCreateDeveloperKeyAlias = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createDeveloperKeyAlias>>, TError,{data: BodyType<ApiKeyInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createDeveloperKeyAlias>>,
+        TError,
+        {data: BodyType<ApiKeyInput>},
+        TContext
+      > => {
+      return useMutation(getCreateDeveloperKeyAliasMutationOptions(options));
+    }
+
+export const getDeleteDeveloperKeyAliasUrl = (id: string,) => {
+
+
+
+
+  return `/api/v1/keys/${id}`
+}
+
+/**
+ * @summary Revoke a developer API key
+ */
+export const deleteDeveloperKeyAlias = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteDeveloperKeyAliasUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteDeveloperKeyAliasMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDeveloperKeyAlias>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteDeveloperKeyAlias>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['deleteDeveloperKeyAlias'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteDeveloperKeyAlias>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteDeveloperKeyAlias(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteDeveloperKeyAliasMutationResult = NonNullable<Awaited<ReturnType<typeof deleteDeveloperKeyAlias>>>
+
+    export type DeleteDeveloperKeyAliasMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Revoke a developer API key
+ */
+export const useDeleteDeveloperKeyAlias = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteDeveloperKeyAlias>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteDeveloperKeyAlias>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getDeleteDeveloperKeyAliasMutationOptions(options));
+    }
+
+export const getListProviderKeysUrl = () => {
+
+
+
+
+  return `/api/v1/provider-keys`
+}
+
+/**
+ * @summary List configured BYOK providers
+ */
+export const listProviderKeys = async ( options?: Parameters<typeof customFetch>[1]): Promise<ProviderKey[]> => {
+
+  return customFetch<ProviderKey[]>(getListProviderKeysUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListProviderKeysQueryKey = () => {
+    return [
+    `/api/v1/provider-keys`
+    ] as const;
+    }
+
+
+export const getListProviderKeysQueryOptions = <TData = Awaited<ReturnType<typeof listProviderKeys>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProviderKeys>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListProviderKeysQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listProviderKeys>>> = ({ signal }) => listProviderKeys({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listProviderKeys>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListProviderKeysQueryResult = NonNullable<Awaited<ReturnType<typeof listProviderKeys>>>
+export type ListProviderKeysQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List configured BYOK providers
+ */
+
+export function useListProviderKeys<TData = Awaited<ReturnType<typeof listProviderKeys>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listProviderKeys>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListProviderKeysQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveProviderKeyUrl = (provider: 'openai' | 'gemini' | 'anthropic' | 'openrouter',) => {
+
+
+
+
+  return `/api/v1/provider-keys/${provider}`
+}
+
+/**
+ * @summary Securely save a provider API key
+ */
+export const saveProviderKey = async (provider: 'openai' | 'gemini' | 'anthropic' | 'openrouter',
+    saveProviderKeyBody: SaveProviderKeyBody, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getSaveProviderKeyUrl(provider),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(saveProviderKeyBody)
+  }
+);}
+
+
+
+
+
+export const getSaveProviderKeyMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveProviderKey>>, TError,{provider: 'openai' | 'gemini' | 'anthropic' | 'openrouter';data: BodyType<SaveProviderKeyBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveProviderKey>>, TError,{provider: 'openai' | 'gemini' | 'anthropic' | 'openrouter';data: BodyType<SaveProviderKeyBody>}, TContext> => {
+
+const mutationKey = ['saveProviderKey'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveProviderKey>>, {provider: 'openai' | 'gemini' | 'anthropic' | 'openrouter';data: BodyType<SaveProviderKeyBody>}> = (props) => {
+          const {provider,data} = props ?? {};
+
+          return  saveProviderKey(provider,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveProviderKeyMutationResult = NonNullable<Awaited<ReturnType<typeof saveProviderKey>>>
+    export type SaveProviderKeyMutationBody = BodyType<SaveProviderKeyBody>
+    export type SaveProviderKeyMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Securely save a provider API key
+ */
+export const useSaveProviderKey = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveProviderKey>>, TError,{provider: 'openai' | 'gemini' | 'anthropic' | 'openrouter';data: BodyType<SaveProviderKeyBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof saveProviderKey>>,
+        TError,
+        {provider: 'openai' | 'gemini' | 'anthropic' | 'openrouter';data: BodyType<SaveProviderKeyBody>},
+        TContext
+      > => {
+      return useMutation(getSaveProviderKeyMutationOptions(options));
+    }
+
+export const getDeleteProviderKeyUrl = (provider: 'openai' | 'gemini' | 'anthropic' | 'openrouter',) => {
+
+
+
+
+  return `/api/v1/provider-keys/${provider}`
+}
+
+/**
+ * @summary Delete a provider API key
+ */
+export const deleteProviderKey = async (provider: 'openai' | 'gemini' | 'anthropic' | 'openrouter', options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteProviderKeyUrl(provider),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteProviderKeyMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProviderKey>>, TError,{provider: 'openai' | 'gemini' | 'anthropic' | 'openrouter'}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteProviderKey>>, TError,{provider: 'openai' | 'gemini' | 'anthropic' | 'openrouter'}, TContext> => {
+
+const mutationKey = ['deleteProviderKey'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteProviderKey>>, {provider: 'openai' | 'gemini' | 'anthropic' | 'openrouter'}> = (props) => {
+          const {provider} = props ?? {};
+
+          return  deleteProviderKey(provider,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteProviderKeyMutationResult = NonNullable<Awaited<ReturnType<typeof deleteProviderKey>>>
+
+    export type DeleteProviderKeyMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a provider API key
+ */
+export const useDeleteProviderKey = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteProviderKey>>, TError,{provider: 'openai' | 'gemini' | 'anthropic' | 'openrouter'}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteProviderKey>>,
+        TError,
+        {provider: 'openai' | 'gemini' | 'anthropic' | 'openrouter'},
+        TContext
+      > => {
+      return useMutation(getDeleteProviderKeyMutationOptions(options));
     }
 
 export const getUpdateRoutingModeUrl = () => {

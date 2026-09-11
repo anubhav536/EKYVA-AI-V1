@@ -18,6 +18,14 @@ export const HealthCheckResponse = zod.object({
 
 
 /**
+ * @summary Get gateway and provider health
+ */
+export const GetGatewayHealthResponse = zod.object({
+  "status": zod.string()
+})
+
+
+/**
  * @summary Create an EKYVA account
  */
 export const registerBodyPasswordMin = 10;
@@ -102,7 +110,7 @@ export const generateBodyMaxOutputTokensMax = 32000;
 
 
 export const GenerateBody = zod.object({
-  "capability": zod.enum(['text.generate', 'text.reason', 'vision.analyze', 'audio.transcribe', 'embeddings.create']),
+  "capability": zod.enum(['text.generate', 'text.reason', 'vision.analyze', 'image.generate', 'embeddings.create']),
   "input": zod.string().min(1).max(generateBodyInputMax),
   "mode": zod.enum(['economy', 'balanced', 'quality']).optional(),
   "model": zod.string().nullish(),
@@ -245,6 +253,74 @@ export const DeleteApiKeyParams = zod.object({
 })
 
 export const DeleteApiKeyResponse = zod.void()
+
+
+/**
+ * @summary Create a developer API key
+ */
+export const createDeveloperKeyAliasBodyNameMax = 60;
+
+
+
+export const CreateDeveloperKeyAliasBody = zod.object({
+  "name": zod.string().min(1).max(createDeveloperKeyAliasBodyNameMax)
+})
+
+export const CreateDeveloperKeyAliasResponse = zod.object({
+  "id": zod.string().uuid(),
+  "name": zod.string(),
+  "key": zod.string()
+})
+
+
+/**
+ * @summary Revoke a developer API key
+ */
+export const DeleteDeveloperKeyAliasParams = zod.object({
+  "id": zod.coerce.string().uuid()
+})
+
+export const DeleteDeveloperKeyAliasResponse = zod.void()
+
+
+/**
+ * @summary List configured BYOK providers
+ */
+export const ListProviderKeysResponseItem = zod.object({
+  "provider": zod.string(),
+  "configured_at": zod.coerce.date(),
+  "status": zod.enum(['configured'])
+})
+export const ListProviderKeysResponse = zod.array(ListProviderKeysResponseItem)
+
+
+/**
+ * @summary Securely save a provider API key
+ */
+export const SaveProviderKeyParams = zod.object({
+  "provider": zod.enum(['openai', 'gemini', 'anthropic', 'openrouter'])
+})
+
+export const saveProviderKeyBodySecretMin = 10;
+export const saveProviderKeyBodySecretMax = 500;
+
+
+
+export const SaveProviderKeyBody = zod.object({
+  "secret": zod.string().min(saveProviderKeyBodySecretMin).max(saveProviderKeyBodySecretMax)
+})
+
+export const SaveProviderKeyResponse = zod.void()
+
+
+/**
+ * @summary Delete a provider API key
+ */
+export const DeleteProviderKeyParams = zod.object({
+  "provider": zod.enum(['openai', 'gemini', 'anthropic', 'openrouter'])
+})
+
+export const DeleteProviderKeyResponse = zod.void()
 
 
 /**

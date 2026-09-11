@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { refreshProviderHealth } from "./lib/provider-health";
 
 const rawPort = process.env["PORT"];
 
@@ -22,4 +23,9 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+  void refreshProviderHealth().catch((error) => logger.warn({ err: error }, "Initial provider health refresh failed"));
+  const healthTimer = setInterval(() => {
+    void refreshProviderHealth().catch((error) => logger.warn({ err: error }, "Provider health refresh failed"));
+  }, 60_000);
+  healthTimer.unref();
 });

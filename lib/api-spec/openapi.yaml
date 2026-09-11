@@ -32,6 +32,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /v1/health:
+    get:
+      operationId: getGatewayHealth
+      tags: [health]
+      summary: Get gateway and provider health
+      responses:
+        "200":
+          description: Gateway health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
   /v1/auth/register:
     post:
       operationId: register
@@ -244,6 +256,87 @@ paths:
       responses:
         "204":
           description: Revoked
+  /v1/keys:
+    post:
+      operationId: createDeveloperKeyAlias
+      tags: [api-keys]
+      summary: Create a developer API key
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiKeyInput"
+      responses:
+        "201":
+          description: Created key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyCreated"
+  /v1/keys/{id}:
+    delete:
+      operationId: deleteDeveloperKeyAlias
+      tags: [api-keys]
+      summary: Revoke a developer API key
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/ApiKeyId"
+      responses:
+        "204":
+          description: Revoked
+  /v1/provider-keys:
+    get:
+      operationId: listProviderKeys
+      tags: [api-keys]
+      summary: List configured BYOK providers
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      responses:
+        "200":
+          description: Configured providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProviderKey"
+  /v1/provider-keys/{provider}:
+    put:
+      operationId: saveProviderKey
+      tags: [api-keys]
+      summary: Securely save a provider API key
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema: { type: string, enum: [openai, gemini, anthropic, openrouter] }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [secret]
+              properties:
+                secret: { type: string, minLength: 10, maxLength: 500, writeOnly: true }
+      responses:
+        "204":
+          description: Saved
+    delete:
+      operationId: deleteProviderKey
+      tags: [api-keys]
+      summary: Delete a provider API key
+      security: [{ cookieAuth: [] }, { bearerAuth: [] }]
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema: { type: string, enum: [openai, gemini, anthropic, openrouter] }
+      responses:
+        "204":
+          description: Deleted
   /v1/routing/mode:
     patch:
       operationId: updateRoutingMode
@@ -469,6 +562,13 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         key: { type: string }
+    ProviderKey:
+      type: object
+      required: [provider, configured_at, status]
+      properties:
+        provider: { type: string }
+        configured_at: { type: string, format: date-time }
+        status: { type: string, enum: [configured] }
     RoutingModeInput:
       type: object
       required: [mode]
@@ -489,7 +589,7 @@ components:
       properties:
         capability:
           type: string
-          enum: [text.generate, text.reason, vision.analyze, audio.transcribe, embeddings.create]
+          enum: [text.generate, text.reason, vision.analyze, image.generate, embeddings.create]
         input: { type: string, minLength: 1, maxLength: 100000 }
         mode:
           type: string

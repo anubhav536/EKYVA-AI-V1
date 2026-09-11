@@ -8,6 +8,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -64,7 +65,9 @@ export const walletTransactionsTable = pgTable("wallet_transactions", {
   requestId: uuid("request_id"),
   idempotencyKey: varchar("idempotency_key", { length: 128 }),
   ...timestamps,
-});
+}, (table) => [
+  uniqueIndex("wallet_transactions_wallet_idempotency_key").on(table.walletId, table.idempotencyKey),
+]);
 
 export const apiKeysTable = pgTable("api_keys", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -88,11 +91,14 @@ export const providersTable = pgTable("providers", {
 
 export const providerCredentialsTable = pgTable("provider_credentials", {
   id: uuid("id").defaultRandom().primaryKey(),
+  userId: uuid("user_id").notNull().references(() => usersTable.id),
   providerId: uuid("provider_id").notNull().references(() => providersTable.id),
   encryptedSecret: text("encrypted_secret").notNull(),
   keyVersion: integer("key_version").notNull().default(1),
   ...timestamps,
-});
+}, (table) => [
+  uniqueIndex("provider_credentials_user_provider").on(table.userId, table.providerId),
+]);
 
 export const capabilitiesTable = pgTable("capabilities", {
   id: varchar("id", { length: 64 }).primaryKey(),
@@ -151,8 +157,11 @@ export const requestsTable = pgTable("requests", {
   selectedModel: varchar("selected_model", { length: 160 }),
   selectedProvider: varchar("selected_provider", { length: 120 }),
   inputHash: varchar("input_hash", { length: 128 }).notNull(),
+  responseJson: jsonb("response_json"),
   ...timestamps,
-});
+}, (table) => [
+  uniqueIndex("requests_user_id_idempotency_key").on(table.userId, table.idempotencyKey),
+]);
 
 export const requestAttemptsTable = pgTable("request_attempts", {
   id: uuid("id").defaultRandom().primaryKey(),

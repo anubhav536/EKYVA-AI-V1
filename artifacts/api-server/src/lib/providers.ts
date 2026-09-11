@@ -29,6 +29,7 @@ export type GenerationRequest = {
   input: string;
   model: RegisteredModel;
   maxOutputTokens?: number | null;
+  credential?: string;
 };
 
 export type GenerationResult = {
@@ -97,16 +98,63 @@ const providerModels: Record<string, Omit<RegisteredModel, "status">[]> = {
       contextWindow: 200000,
     },
   ],
+  gemini: [
+    {
+      id: "gemini-2.5-flash",
+      provider: "gemini",
+      displayName: "Gemini 2.5 Flash",
+      capabilities: ["text.generate", "text.reason", "vision.analyze", "embeddings.create"],
+      qualityScore: 0.88,
+      reliability: 0.985,
+      latencyMs: 360,
+      unitCost: 0.16,
+      contextWindow: 1000000,
+    },
+  ],
+  openrouter: [
+    {
+      id: "openai/gpt-4o-mini",
+      provider: "openrouter",
+      displayName: "OpenRouter · GPT-4o Mini",
+      capabilities: ["text.generate", "text.reason", "vision.analyze"],
+      qualityScore: 0.84,
+      reliability: 0.97,
+      latencyMs: 520,
+      unitCost: 0.2,
+      contextWindow: 128000,
+    },
+  ],
+  mock: [
+    {
+      id: "ekyva-mock-v1",
+      provider: "mock",
+      displayName: "EKYVA Mock Provider",
+      capabilities: ["text.generate", "text.reason", "vision.analyze", "image.generate", "embeddings.create"],
+      qualityScore: 0.7,
+      reliability: 1,
+      latencyMs: 40,
+      unitCost: 0.05,
+      contextWindow: 32000,
+    },
+  ],
 };
 
+const providerStatusOverrides = new Map<string, ProviderStatus>();
+
+export function setProviderStatus(provider: string, status: ProviderStatus) {
+  providerStatusOverrides.set(provider, status);
+}
+
 function configured(provider: string): boolean {
-  return provider === "openai"
-    ? Boolean(process.env.OPENAI_API_KEY)
-    : Boolean(process.env.ANTHROPIC_API_KEY);
+  if (provider === "openai") return Boolean(process.env.OPENAI_API_KEY);
+  if (provider === "anthropic") return Boolean(process.env.ANTHROPIC_API_KEY);
+  if (provider === "gemini") return Boolean(process.env.GEMINI_API_KEY);
+  if (provider === "openrouter") return Boolean(process.env.OPENROUTER_API_KEY);
+  return process.env.EKYVA_ENABLE_MOCK_PROVIDER !== "false";
 }
 
 function modelStatus(provider: string): ProviderStatus {
-  return configured(provider) ? "healthy" : "degraded";
+  return providerStatusOverrides.get(provider) ?? (configured(provider) ? "healthy" : "degraded");
 }
 
 class OpenAIAdapter implements ProviderAdapter {
@@ -143,13 +191,14 @@ class OpenAIAdapter implements ProviderAdapter {
   }
 
   async execute(request: GenerationRequest): Promise<GenerationResult> {
-    if (!configured(this.key)) throw new ProviderError("PROVIDER_NOT_CONFIGURED", "OpenAI credentials are not configured", false);
+    const credential = request.credential ?? process.env.OPENAI_API_KEY;
+    if (!credential) throw new ProviderError("PROVIDER_NOT_CONFIGURED", "OpenAI credentials are not configured", false);
     const baseUrl = process.env.EKYVA_OPENAI_BASE_URL ?? "https://api.openai.com";
     const response = await fetch(`${baseUrl}/v1/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        Authorization: `Bearer ${credential}`,
       },
       body: JSON.stringify({
         model: request.model.id,
@@ -202,12 +251,13 @@ class AnthropicAdapter implements ProviderAdapter {
   }
 
   async execute(request: GenerationRequest): Promise<GenerationResult> {
-    if (!configured(this.key)) throw new ProviderError("PROVIDER_NOT_CONFIGURED", "Anthropic credentials are not configured", false);
+    const credential = request.credential ?? process.env.ANTHROPIC_API_KEY;
+    if (!credential) throw new ProviderError("PROVIDER_NOT_CONFIGURED", "Anthropic credentials are not configured", false);
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": process.env.ANTHROPIC_API_KEY!,
+        "x-api-key": credential,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
@@ -245,7 +295,129 @@ export class ProviderError extends Error {
   }
 }
 
-export const providerAdapters: ProviderAdapter[] = [new OpenAIAdapter(), new AnthropicAdapter()];
+class GeminiAdapter implements ProviderAdapter {
+  key = "gemini";
+  name = "Google Gemini";
+
+  listModels() {
+    return providerModels.gemini.map((model) => ({ ...model, status: modelStatus(this.key) }));
+  }
+
+  getCapabilities() {
+    return providerModels.gemini[0].capabilities;
+  }
+
+  async healthCheck() {
+    return configured(this.key) ? { status: "healthy" as const, latencyMs: 480 } : { status: "degraded" as const, latencyMs: 0 };
+  }
+
+  estimateCost(input: string, model: RegisteredModel) {
+    return Math.max(1, Math.ceil((input.length / 4) * model.unitCost));
+  }
+
+  async execute(request: GenerationRequest): Promise<GenerationResult> {
+    const credential = request.credential ?? process.env.GEMINI_API_KEY;
+    if (!credential) throw new ProviderError("PROVIDER_NOT_CONFIGURED", "Gemini credentials are not configured", false);
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(request.model.id)}:generateContent?key=${encodeURIComponent(credential)}`;
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: request.input }] }] }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!response.ok) throw new ProviderError(`PROVIDER_HTTP_${response.status}`, `Gemini returned ${response.status}`, response.status === 429 || response.status >= 500);
+    const body = (await response.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number } };
+    const output = body.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("") ?? "";
+    if (!output) throw new ProviderError("EMPTY_PROVIDER_RESPONSE", "Gemini returned an empty response", true);
+    const inputTokens = body.usageMetadata?.promptTokenCount ?? Math.ceil(request.input.length / 4);
+    const outputTokens = body.usageMetadata?.candidatesTokenCount ?? Math.ceil(output.length / 4);
+    return { output, inputTokens, outputTokens, providerCost: (inputTokens + outputTokens) * request.model.unitCost / 1000 };
+  }
+}
+
+class OpenRouterAdapter implements ProviderAdapter {
+  key = "openrouter";
+  name = "OpenRouter";
+
+  listModels() {
+    return providerModels.openrouter.map((model) => ({ ...model, status: modelStatus(this.key) }));
+  }
+
+  getCapabilities() {
+    return providerModels.openrouter[0].capabilities;
+  }
+
+  async healthCheck() {
+    return configured(this.key) ? { status: "healthy" as const, latencyMs: 520 } : { status: "degraded" as const, latencyMs: 0 };
+  }
+
+  estimateCost(input: string, model: RegisteredModel) {
+    return Math.max(1, Math.ceil((input.length / 4) * model.unitCost));
+  }
+
+  async execute(request: GenerationRequest): Promise<GenerationResult> {
+    const credential = request.credential ?? process.env.OPENROUTER_API_KEY;
+    if (!credential) throw new ProviderError("PROVIDER_NOT_CONFIGURED", "OpenRouter credentials are not configured", false);
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${credential}`,
+        "HTTP-Referer": process.env.EKYVA_PUBLIC_URL ?? "http://localhost",
+        "X-Title": "EKYVA AI",
+      },
+      body: JSON.stringify({ model: request.model.id, messages: [{ role: "user", content: request.input }], max_tokens: request.maxOutputTokens ?? 1024 }),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!response.ok) throw new ProviderError(`PROVIDER_HTTP_${response.status}`, `OpenRouter returned ${response.status}`, response.status === 429 || response.status >= 500);
+    const body = (await response.json()) as { choices?: { message?: { content?: string } }[]; usage?: { prompt_tokens?: number; completion_tokens?: number } };
+    const output = body.choices?.[0]?.message?.content;
+    if (!output) throw new ProviderError("EMPTY_PROVIDER_RESPONSE", "OpenRouter returned an empty response", true);
+    const inputTokens = body.usage?.prompt_tokens ?? Math.ceil(request.input.length / 4);
+    const outputTokens = body.usage?.completion_tokens ?? Math.ceil(output.length / 4);
+    return { output, inputTokens, outputTokens, providerCost: (inputTokens + outputTokens) * request.model.unitCost / 1000 };
+  }
+}
+
+class MockAdapter implements ProviderAdapter {
+  key = "mock";
+  name = "EKYVA Mock Provider";
+
+  listModels() {
+    return providerModels.mock.map((model) => ({ ...model, status: "healthy" as const }));
+  }
+
+  getCapabilities() {
+    return providerModels.mock[0].capabilities;
+  }
+
+  async healthCheck() {
+    return { status: "healthy" as const, latencyMs: 5 };
+  }
+
+  estimateCost(input: string, model: RegisteredModel) {
+    return Math.max(1, Math.ceil((input.length / 4) * model.unitCost));
+  }
+
+  async execute(request: GenerationRequest): Promise<GenerationResult> {
+    const inputTokens = Math.max(1, Math.ceil(request.input.length / 4));
+    const output = request.capability === "embeddings.create"
+      ? JSON.stringify({ embedding: Array.from({ length: 8 }, (_, index) => Number(((inputTokens + index) / 100).toFixed(4))) })
+      : request.capability === "image.generate"
+        ? `Mock image generated for: ${request.input}`
+        : `Mock response from EKYVA. I received your ${request.capability} request: ${request.input}`;
+    const outputTokens = Math.max(1, Math.ceil(output.length / 4));
+    return { output, inputTokens, outputTokens, providerCost: (inputTokens + outputTokens) * request.model.unitCost / 1000 };
+  }
+}
+
+export const providerAdapters: ProviderAdapter[] = [
+  new OpenAIAdapter(),
+  new AnthropicAdapter(),
+  new GeminiAdapter(),
+  new OpenRouterAdapter(),
+  new MockAdapter(),
+];
 
 export function allModels(): RegisteredModel[] {
   return providerAdapters.flatMap((adapter) => adapter.listModels());
